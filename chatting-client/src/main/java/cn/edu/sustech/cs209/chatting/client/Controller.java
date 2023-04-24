@@ -41,13 +41,17 @@ public class Controller implements Initializable {
                TODO: Check if there is a user with the same name among the currently logged-in users,
                      if so, ask the user to change the username
              */
+//            System.out.println(666);
             username = input.get();
+//            System.out.println(777);
             clientService = new ClientService();
+//            System.out.println(888);
             Thread t = new Thread(clientService);
             t.start();
             try {
+                System.out.println("get Users");
                 clientService.refreshOnlineUsers();
-            } catch (InterruptedException e) {
+            } catch (InterruptedException | IOException e) {
                 throw new RuntimeException(e);
             }
             for (String s : clientService.getOnlineUsers()) {
@@ -64,7 +68,11 @@ public class Controller implements Initializable {
                 }
             }
             System.out.println("continue");
-            clientService.login(username);
+            try {
+                clientService.login(username);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         } else {
             System.out.println("Invalid username " + input + ", contains ','");
             Platform.exit();

@@ -1,17 +1,15 @@
 package cn.edu.sustech.cs209.chatting.client;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PrintWriter;
+import cn.edu.sustech.cs209.chatting.common.Message;
+import cn.edu.sustech.cs209.chatting.common.MessageType;
+
+import java.io.*;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.Scanner;
 
 public class ClientService extends Thread {
     private Socket soc;
-    private Scanner in;
-    private PrintWriter out;
+    private ObjectInputStream in;
+    private ObjectOutputStream out;
     private String user;
     private boolean exit = false;
     private String[] onlineUsers;
@@ -19,9 +17,12 @@ public class ClientService extends Thread {
     public ClientService() {
         try {
             onlineUsers = new String[0];
-            soc = new Socket("localhost", 8889);
-            in = new Scanner(soc.getInputStream());
-            out = new PrintWriter(soc.getOutputStream());
+            soc = new Socket("localhost", 8888);
+            System.out.println("Connected");
+            in = new ObjectInputStream(soc.getInputStream());
+//            System.out.println("in created");
+            out = new ObjectOutputStream(soc.getOutputStream());
+//            System.out.println("out created");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -38,13 +39,13 @@ public class ClientService extends Thread {
     }
     
     private void doClientService() throws IOException {
-        System.out.println("start service");
+        System.out.println("start client service");
         try {
             while (!Thread.interrupted()) {
-                String str;
-                if ((str = in.next()) != null) {
-                    System.out.println("Received:" + str);
-                    execute(str);
+                Message m;
+                if ((m = (Message)in.readObject() ) != null) {
+                    System.out.println("Received:" + m);
+                    execute(m);
                 } else {
                     System.out.println("No input:client");
                     Thread.sleep(500);
@@ -55,26 +56,28 @@ public class ClientService extends Thread {
             in.close();
             out.close();
             soc.close();
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
         }
     }
     
-    private void execute(String command) {
-        if (command.equals("UPDATE_ONLINE_USERS")) {
-            onlineUsers = in.next().split(",");
-            return;
+    private void execute(Message m) {
+        if(m.getType() == MessageType.FETCH_USER_LIST){
+            String data = m.getData();
+            onlineUsers = data.substring(1,data.length()-1).split(", ");
         }
     }
     
-    public void refreshOnlineUsers() throws InterruptedException {
-        out.println("GET_ONLINE_USERS");
-        out.flush();
+    public void refreshOnlineUsers() throws InterruptedException, IOException {
+        Message m = new Message(MessageType.FETCH_USER_LIST,System.currentTimeMillis(),"client","server","nodata");
+        sendMessage(m);
         Thread.sleep(50);
     }
     
-    public void login(String user) {
+    public void login(String user) throws IOException {
         this.user = user;
-        out.println("LOG_IN " + user);
-        out.flush();
+        Message m = new Message(MessageType.LOGIN,System.currentTimeMillis(),user,"server",user);
+        sendMessage(m);
     }
     
     public void quit() throws IOException {
@@ -84,5 +87,10 @@ public class ClientService extends Thread {
     
     public String[] getOnlineUsers() {
         return onlineUsers;
+    }
+    
+    private void sendMessage(Message m) throws IOException {
+        out.writeObject(m);
+        out.flush();
     }
 }

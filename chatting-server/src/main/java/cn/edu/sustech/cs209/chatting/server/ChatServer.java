@@ -10,7 +10,7 @@ public class ChatServer {
     public static void main(String[] args) throws IOException {
         onlineUsers = new ArrayList<>();
         onlineUsers.add("ROOT");
-        ServerSocket server = new ServerSocket(8889);
+        ServerSocket server = new ServerSocket(8888);
         while(true){
             try{
                 System.out.println("Server waiting");
