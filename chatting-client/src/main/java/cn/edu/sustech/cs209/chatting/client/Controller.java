@@ -12,6 +12,8 @@ import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 import javafx.util.Callback;
 
+import java.io.IOException;
+import java.net.Socket;
 import java.net.URL;
 import java.util.Objects;
 import java.util.Optional;
@@ -40,6 +42,20 @@ public class Controller implements Initializable {
                      if so, ask the user to change the username
              */
             username = input.get();
+            ClientService clientService = new ClientService();
+            Thread t = new Thread(clientService);
+            t.start();
+            String nowOnline[] = clientService.getOnlineUsers();
+            if(nowOnline == null){
+                System.out.println("NULL online users!");
+            } else{
+                for (String s : nowOnline) {
+                    if (s.equals(username)) {
+                        System.out.println("Existing!");
+                    }
+                }
+            }
+            System.out.println("Logged in!");
         } else {
             System.out.println("Invalid username " + input + ", exiting");
             Platform.exit();
