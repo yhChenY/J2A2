@@ -6,14 +6,21 @@ import java.net.Socket;
 import java.util.ArrayList;
 
 public class ChatServer {
-    private ArrayList<String> onlineUsers;
+    public static ArrayList<String> onlineUsers;
     public static void main(String[] args) throws IOException {
+        onlineUsers = new ArrayList<>();
+        onlineUsers.add("ROOT");
         ServerSocket server = new ServerSocket(8889);
-        System.out.println("Waiting for clients to connect");
-        Socket s = server.accept();
-        System.out.println("Connected");
-        ServerService serverService = new ServerService(s);
-        Thread t = new Thread(serverService);
-        t.start();
+        while(true){
+            try{
+                System.out.println("Server waiting");
+                Socket socket = server.accept();
+                System.out.println("Connected");
+                ServerService serverService = new ServerService(socket);
+                serverService.start();
+            }catch (IOException e){
+                e.printStackTrace();
+            }
+        }
     }
 }

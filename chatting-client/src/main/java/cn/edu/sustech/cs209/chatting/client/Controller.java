@@ -21,76 +21,85 @@ import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class Controller implements Initializable {
-
+    
     @FXML
     ListView<Message> chatContentList;
-
+    
     String username;
-
+    ClientService clientService;
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-
+        
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
         dialog.setHeaderText(null);
         dialog.setContentText("Username:");
-
+        
         Optional<String> input = dialog.showAndWait();
-        if (input.isPresent() && !input.get().isEmpty()) {
+        if (input.isPresent() && !input.get().isEmpty() && !input.get().contains(",")) {
             /*
                TODO: Check if there is a user with the same name among the currently logged-in users,
                      if so, ask the user to change the username
              */
             username = input.get();
-            ClientService clientService = new ClientService();
+            clientService = new ClientService();
             Thread t = new Thread(clientService);
             t.start();
-            String nowOnline[] = clientService.getOnlineUsers();
-            if(nowOnline == null){
-                System.out.println("NULL online users!");
-            } else{
-                for (String s : nowOnline) {
-                    if (s.equals(username)) {
-                        System.out.println("Existing!");
+            try {
+                clientService.refreshOnlineUsers();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            for (String s : clientService.getOnlineUsers()) {
+                System.out.println(s);
+                if(s.equals(username)){
+                    System.out.println("Exist username!");
+                    try {
+                        clientService.quit();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
                     }
+                    Platform.exit();
+                    return;
                 }
             }
-            System.out.println("Logged in!");
+            System.out.println("continue");
+            clientService.login(username);
         } else {
-            System.out.println("Invalid username " + input + ", exiting");
+            System.out.println("Invalid username " + input + ", contains ','");
             Platform.exit();
         }
-
+        
         chatContentList.setCellFactory(new MessageCellFactory());
     }
-
+    
     @FXML
     public void createPrivateChat() {
         AtomicReference<String> user = new AtomicReference<>();
-
+        
         Stage stage = new Stage();
         ComboBox<String> userSel = new ComboBox<>();
-
+        
         // FIXME: get the user list from server, the current user's name should be filtered out
         userSel.getItems().addAll("Item 1", "Item 2", "Item 3");
-
+        
         Button okBtn = new Button("OK");
         okBtn.setOnAction(e -> {
             user.set(userSel.getSelectionModel().getSelectedItem());
             stage.close();
         });
-
+        
         HBox box = new HBox(10);
         box.setAlignment(Pos.CENTER);
         box.setPadding(new Insets(20, 20, 20, 20));
         box.getChildren().addAll(userSel, okBtn);
         stage.setScene(new Scene(box));
         stage.showAndWait();
-
+        
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
     }
-
+    
     /**
      * A new dialog should contain a multi-select list, showing all user's name.
      * You can select several users that will be joined in the group chat, including yourself.
@@ -104,7 +113,7 @@ public class Controller implements Initializable {
     @FXML
     public void createGroupChat() {
     }
-
+    
     /**
      * Sends the message to the <b>currently selected</b> chat.
      * <p>
@@ -115,7 +124,7 @@ public class Controller implements Initializable {
     public void doSendMessage() {
         // TODO
     }
-
+    
     /**
      * You may change the cell factory if you changed the design of {@code Message} model.
      * Hint: you may also define a cell factory for the chats displayed in the left panel, or simply override the toString method.
@@ -124,7 +133,7 @@ public class Controller implements Initializable {
         @Override
         public ListCell<Message> call(ListView<Message> param) {
             return new ListCell<Message>() {
-
+                
                 @Override
                 public void updateItem(Message msg, boolean empty) {
                     super.updateItem(msg, empty);
@@ -133,15 +142,15 @@ public class Controller implements Initializable {
                         setGraphic(null);
                         return;
                     }
-
+                    
                     HBox wrapper = new HBox();
                     Label nameLabel = new Label(msg.getSentBy());
                     Label msgLabel = new Label(msg.getData());
-
+                    
                     nameLabel.setPrefSize(50, 20);
                     nameLabel.setWrapText(true);
                     nameLabel.setStyle("-fx-border-color: black; -fx-border-width: 1px;");
-
+                    
                     if (username.equals(msg.getSentBy())) {
                         wrapper.setAlignment(Pos.TOP_RIGHT);
                         wrapper.getChildren().addAll(msgLabel, nameLabel);
@@ -151,7 +160,7 @@ public class Controller implements Initializable {
                         wrapper.getChildren().addAll(nameLabel, msgLabel);
                         msgLabel.setPadding(new Insets(0, 0, 0, 20));
                     }
-
+                    
                     setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
                     setGraphic(wrapper);
                 }

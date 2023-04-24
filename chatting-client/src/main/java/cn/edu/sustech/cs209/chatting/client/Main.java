@@ -14,7 +14,6 @@ import java.util.Scanner;
 
 public class Main extends Application {
     public static void main(String[] args) throws IOException {
-//        Socket s = new Socket("localhost",8889);
         launch();
     }
 

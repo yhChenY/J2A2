@@ -7,9 +7,9 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Scanner;
 
-public class ServerService implements Runnable {
+public class ServerService extends Thread {
     private Socket soc;
-    private BufferedReader in;
+    private Scanner in;
     private PrintWriter out;
     private String user;
     
@@ -21,11 +21,9 @@ public class ServerService implements Runnable {
     public void run() {
         try {
             try {
-                in = new BufferedReader(new InputStreamReader(soc.getInputStream()));
+                in = new Scanner(soc.getInputStream());
                 out = new PrintWriter(soc.getOutputStream());
-                System.out.println("Service start");
                 doService();
-                System.out.println("Service finished");
             } finally {
                 if (in != null) {
                     in.close();
@@ -43,7 +41,8 @@ public class ServerService implements Runnable {
     private void doService() throws IOException, InterruptedException {
         while (true) {
             String str;
-            if ((str = in.readLine()) != null) {
+            if ((str = in.nextLine()) != null) {
+                System.out.println("Received:" + str);
                 execute(str);
             } else {
                 System.out.println("No input:server");
@@ -54,9 +53,20 @@ public class ServerService implements Runnable {
     
     private void execute(String command) {
         String[] strs = command.split(" ");
-        if(strs[0].equals("GET_ONLINE_USERS")){
-            out.println("123");
+        if (strs[0].equals("GET_ONLINE_USERS")) {
+            StringBuilder sb = new StringBuilder("UPDATE_ONLINE_USERS ");
+            sb.append(ChatServer.onlineUsers.get(0));
+            if (ChatServer.onlineUsers.size() > 1) {
+                for (String s : ChatServer.onlineUsers.subList(1, ChatServer.onlineUsers.size())) {
+                    sb.append(",").append(s);
+                }
+            }
+            out.println(sb.toString());
             out.flush();
+        } else if (strs[0].equals("LOG_IN")) {
+            String user = strs[1];
+            System.out.println("Add user "+user);
+            ChatServer.onlineUsers.add(user);
         }
     }
 }
