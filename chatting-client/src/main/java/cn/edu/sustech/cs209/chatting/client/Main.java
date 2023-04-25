@@ -13,15 +13,15 @@ import java.net.Socket;
 import java.util.Scanner;
 
 public class Main extends Application {
-    public static void main(String[] args) throws IOException {
-        launch();
-    }
+  public static void main(String[] args) throws IOException {
+    launch();
+  }
 
-    @Override
-    public void start(Stage stage) throws IOException {
-        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("main.fxml"));
-        stage.setScene(new Scene(fxmlLoader.load()));
-        stage.setTitle("Chatting Client");
-        stage.show();
-    }
+  @Override
+  public void start(Stage stage) throws IOException {
+    FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("main.fxml"));
+    stage.setScene(new Scene(fxmlLoader.load()));
+    stage.setTitle("Chatting Client");
+    stage.show();
+  }
 }
