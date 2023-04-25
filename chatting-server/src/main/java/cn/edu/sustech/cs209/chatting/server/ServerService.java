@@ -5,8 +5,12 @@ import cn.edu.sustech.cs209.chatting.common.MessageType;
 
 import java.io.*;
 import java.net.Socket;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
+import java.util.stream.Collectors;
 
 public class ServerService extends Thread {
     private Socket soc;
@@ -39,12 +43,12 @@ public class ServerService extends Thread {
                 }
                 soc.close();
             }
-        } catch (IOException | InterruptedException | ClassNotFoundException e) {
+        } catch (IOException | InterruptedException | ClassNotFoundException | SQLException e) {
             e.printStackTrace();
         }
     }
     
-    private void doService() throws IOException, InterruptedException, ClassNotFoundException {
+    private void doService() throws IOException, InterruptedException, ClassNotFoundException, SQLException {
         while (true) {
             Message m;
             if ((m = (Message) in.readObject()) != null) {
@@ -57,15 +61,25 @@ public class ServerService extends Thread {
         }
     }
     
-    private void execute(Message m) throws IOException {
+    private void execute(Message m) throws IOException, SQLException {
         if (m.getType() == MessageType.FETCH_USER_LIST) {
             String data = Arrays.toString(ChatServer.onlineUsers.toArray());
             Message to = new Message(MessageType.FETCH_USER_LIST, System.currentTimeMillis(), "server", "user", data);
             sendMessage(to);
         } else if (m.getType() == MessageType.LOGIN) {
             String data = m.getData();
+            user = data;
             System.out.println("Add user " + data);
             ChatServer.onlineUsers.add(data);
+        } else if (m.getType() == MessageType.SEND) {
+            DBOpe.addMessage(m);
+        } else if (m.getType() == MessageType.FETCH_MEMS) {
+            String uu = m.getData();
+            ArrayList<Message> messages = DBOpe.getMessages(0L);
+            List<Message> filtered = messages.stream().filter(mm-> uu.equals(m.getSentBy())||m.getSendTo().contains(uu)).collect(Collectors.toList());
+            for(Message tmp:filtered){
+                sendMessage(tmp);
+            }
         }
     }
     

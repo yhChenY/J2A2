@@ -1,13 +1,17 @@
 package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
+import cn.edu.sustech.cs209.chatting.common.MessageType;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 import javafx.util.Callback;
@@ -15,6 +19,7 @@ import javafx.util.Callback;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ResourceBundle;
@@ -24,9 +29,19 @@ public class Controller implements Initializable {
     
     @FXML
     ListView<Message> chatContentList;
-    
+    ObservableList<Message> chatMessages = FXCollections.observableList(new ArrayList<>());
+    @FXML
+    ListView<ChatTarget> chatList;
+    ObservableList<ChatTarget> chatTargets = FXCollections.observableList(new ArrayList<>());
+    @FXML
+    TextArea inputArea;
+    @FXML
+    Label currentUsername;
+    @FXML
+    Label currentOnlineCnt;
     String username;
     ClientService clientService;
+    
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         
@@ -44,19 +59,20 @@ public class Controller implements Initializable {
 //            System.out.println(666);
             username = input.get();
 //            System.out.println(777);
-            clientService = new ClientService();
+            clientService = new ClientService(chatTargets,this);
 //            System.out.println(888);
+            currentOnlineCnt.setText("initial");
             Thread t = new Thread(clientService);
             t.start();
             try {
-                System.out.println("get Users");
+                System.out.println("Get online user list");
                 clientService.refreshOnlineUsers();
             } catch (InterruptedException | IOException e) {
                 throw new RuntimeException(e);
             }
             for (String s : clientService.getOnlineUsers()) {
                 System.out.println(s);
-                if(s.equals(username)){
+                if (s.equals(username)) {
                     System.out.println("Exist username!");
                     try {
                         clientService.quit();
@@ -67,9 +83,10 @@ public class Controller implements Initializable {
                     return;
                 }
             }
-            System.out.println("continue");
             try {
                 clientService.login(username);
+                FetchMessageThread fmt = new FetchMessageThread(clientService, this);
+                fmt.start();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -77,8 +94,36 @@ public class Controller implements Initializable {
             System.out.println("Invalid username " + input + ", contains ','");
             Platform.exit();
         }
+        chatList.setItems(chatTargets);
+        Callback<ListView<ChatTarget>, ListCell<ChatTarget>> cellFactory = new Callback<ListView<ChatTarget>, ListCell<ChatTarget>>() {
+            @Override
+            public ListCell<ChatTarget> call(ListView<ChatTarget> listView) {
+                return new ListCell<ChatTarget>() {
+                    @Override
+                    protected void updateItem(ChatTarget item, boolean empty) {
+                        super.updateItem(item, empty);
+                        if (item != null) {
+                            setText(item.getTitle());
+                        } else {
+                            setText(null);
+                        }
+                    }
+                };
+            }
+        };
         
+        chatContentList.setItems(chatMessages);
         chatContentList.setCellFactory(new MessageCellFactory());
+        chatList.setCellFactory(cellFactory);
+        chatList.setOnMouseClicked(event -> {
+            if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 1) {
+                ChatTarget ct = chatList.getSelectionModel().getSelectedItem();
+//                System.out.println(chatContentList.getItems().size());
+                chatContentList.setItems(ct.getMessages());
+//                System.out.println(chatContentList.getItems().size());
+//                chatContentList.getItems().addAll(ct.getMessages());
+            }
+        });
     }
     
     @FXML
@@ -87,9 +132,13 @@ public class Controller implements Initializable {
         
         Stage stage = new Stage();
         ComboBox<String> userSel = new ComboBox<>();
-        
-        // FIXME: get the user list from server, the current user's name should be filtered out
-        userSel.getItems().addAll("Item 1", "Item 2", "Item 3");
+
+//        userSel.getItems().addAll("Item 1", "Item 2", "Item 3");
+        for (String s : clientService.getOnlineUsers()) {
+            if (!s.equals(username)) {
+                userSel.getItems().add(s);
+            }
+        }
         
         Button okBtn = new Button("OK");
         okBtn.setOnAction(e -> {
@@ -97,15 +146,27 @@ public class Controller implements Initializable {
             stage.close();
         });
         
-        HBox box = new HBox(10);
+        HBox box = new HBox(20);
         box.setAlignment(Pos.CENTER);
         box.setPadding(new Insets(20, 20, 20, 20));
         box.getChildren().addAll(userSel, okBtn);
         stage.setScene(new Scene(box));
         stage.showAndWait();
-        
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
+        boolean contains = false;
+        for (ChatTarget ct : chatTargets) {
+            if (ct.getTitle().equals(user.get())) {
+                contains = true;
+                // select
+                System.out.println("Chat exist");
+                chatList.getSelectionModel().select(ct);
+                break;
+            }
+        }
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
+        if (!contains) {
+            chatTargets.add(new ChatTarget(user.get(), user.get()));
+        }
     }
     
     /**
@@ -129,8 +190,15 @@ public class Controller implements Initializable {
      * After sending the message, you should clear the text input field.
      */
     @FXML
-    public void doSendMessage() {
+    public void doSendMessage() throws IOException {
         // TODO
+        String sentBy = username;
+        String sendTo = chatList.getSelectionModel().getSelectedItem().getMembers().toString();
+        String data = inputArea.getText();
+        if(data != null && !data.isEmpty() && !data.trim().isEmpty()){
+            clientService.sendMessage(new Message(MessageType.SEND, System.currentTimeMillis(), sentBy, sendTo, data));
+        }
+        inputArea.clear();
     }
     
     /**

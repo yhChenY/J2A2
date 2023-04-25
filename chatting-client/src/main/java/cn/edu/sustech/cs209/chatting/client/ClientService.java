@@ -2,20 +2,26 @@ package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
 import cn.edu.sustech.cs209.chatting.common.MessageType;
+import javafx.collections.ObservableList;
 
 import java.io.*;
 import java.net.Socket;
+import java.util.Arrays;
+import java.util.List;
 
 public class ClientService extends Thread {
     private Socket soc;
     private ObjectInputStream in;
     private ObjectOutputStream out;
-    private String user;
+    public String user;
     private boolean exit = false;
     private String[] onlineUsers;
+    ObservableList<ChatTarget> chatTargets;
+    Controller controller;
     
-    public ClientService() {
+    public ClientService(ObservableList<ChatTarget> chatTargets, Controller c) {
         try {
+            this.chatTargets = chatTargets;
             onlineUsers = new String[0];
             soc = new Socket("localhost", 8888);
             System.out.println("Connected");
@@ -43,7 +49,7 @@ public class ClientService extends Thread {
         try {
             while (!Thread.interrupted()) {
                 Message m;
-                if ((m = (Message)in.readObject() ) != null) {
+                if ((m = (Message) in.readObject()) != null) {
                     System.out.println("Received:" + m);
                     execute(m);
                 } else {
@@ -62,22 +68,90 @@ public class ClientService extends Thread {
     }
     
     private void execute(Message m) {
-        if(m.getType() == MessageType.FETCH_USER_LIST){
+        if (m.getType() == MessageType.FETCH_USER_LIST) {
             String data = m.getData();
-            onlineUsers = data.substring(1,data.length()-1).split(", ");
+            onlineUsers = data.substring(1, data.length() - 1).split(", ");
+            try {
+                controller.currentOnlineCnt.setText("Online: " + onlineUsers.length);
+            } catch (NullPointerException e) {
+//                System.out.println("NULL Pointer Ex");
+                // do nothing
+            }
         }
+        if (m.getType() == MessageType.SEND) {
+            boolean existChat = false;
+            for (ChatTarget ct : chatTargets) {
+                if (ct.getMembers().toString().equals(m.getSendTo()) && (m.getSentBy().equals(user) || ct.getMembers().contains(user))) {
+                    existChat = true;
+                    ct.addMessage(m);
+                    break;
+                }
+            }
+            if (!existChat && (m.getSentBy().equals(user) || m.getSendTo().contains(user))) {
+                String[] members = m.getSendTo().substring(1, m.getSendTo().length() - 1).split(", ");
+                String title;
+                if (members.length > 3) {
+                    title = members[0] + "," + members[1] + "," + members[2] + "...(" + members.length + ")";
+                } else {
+                    title = members[0];
+                    for (int i = 1; i < members.length; i++) {
+                        title = title + "," + members[i];
+                    }
+                }
+                ChatTarget tmp = new ChatTarget(title, m.getSendTo());
+                chatTargets.add(tmp);
+                tmp.addMessage(m);
+            }
+//            controller.chatList.setItems(controller.chatTargets);
+        }
+
+//        if (m.getType() == MessageType.SEND) {
+//            if (m.getSentBy().equals(user) || m.getSendTo().contains(user)) {
+//                boolean flag = false;
+//                for (ChatTarget ct : chatTargets) {
+//                    boolean inflag = false;
+//                    for (String mem : ct.getMembers()) {
+//                        if (!m.getSendTo().contains(mem)) {
+//                            inflag = true;
+//                            break;
+//                        }
+//                    }
+//                    if(inflag){
+//
+//                    }
+//                }
+//                if (flag) {
+//                    String[] members = m.getSendTo().substring(1, m.getSendTo().length() - 1).split(", ");
+//                    String title;
+//                    if (members.length > 3) {
+//                        title = members[0] + "," + members[1] + "," + members[2] + "...(" + members.length + ")";
+//                    } else {
+//                        title = members[0];
+//                        for (int i = 1; i < members.length; i++) {
+//                            title = title + "," + members[i];
+//                        }
+//                    }
+//                    ChatTarget ct = new ChatTarget(title, );
+//                } else {
+//
+//                }
+//
+//            }
+//        }
     }
     
     public void refreshOnlineUsers() throws InterruptedException, IOException {
-        Message m = new Message(MessageType.FETCH_USER_LIST,System.currentTimeMillis(),"client","server","nodata");
+        Message m = new Message(MessageType.FETCH_USER_LIST, System.currentTimeMillis(), "client", "[server]", "nodata");
         sendMessage(m);
         Thread.sleep(50);
     }
     
     public void login(String user) throws IOException {
         this.user = user;
-        Message m = new Message(MessageType.LOGIN,System.currentTimeMillis(),user,"server",user);
+        Message m = new Message(MessageType.LOGIN, System.currentTimeMillis(), user, "[server]", user);
         sendMessage(m);
+        Message test = new Message(MessageType.SEND, System.currentTimeMillis(), user, "[server]", "testData");
+        sendMessage(test);
     }
     
     public void quit() throws IOException {
@@ -89,7 +163,7 @@ public class ClientService extends Thread {
         return onlineUsers;
     }
     
-    private void sendMessage(Message m) throws IOException {
+    public void sendMessage(Message m) throws IOException {
         out.writeObject(m);
         out.flush();
     }
