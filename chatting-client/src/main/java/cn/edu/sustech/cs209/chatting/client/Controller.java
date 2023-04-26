@@ -193,7 +193,8 @@ public class Controller implements Initializable {
   public void doSendMessage() throws IOException {
     // TODO
     String sentBy = username;
-    String sendTo = chatList.getSelectionModel().getSelectedItem().getMembers().toString();
+    String sendTo = chatList.getSelectionModel().getSelectedItem().getTitle();
+    sendTo = "["+sendTo+"]";
     String data = inputArea.getText();
     if (data != null && !data.isEmpty() && !data.trim().isEmpty()) {
       clientService.sendMessage(new Message(MessageType.SEND, System.currentTimeMillis(), sentBy, sendTo, data));

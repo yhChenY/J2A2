@@ -27,7 +27,7 @@ public class FetchMessageThread extends Thread {
         m = new Message(MessageType.FETCH_MEMS, System.currentTimeMillis(), service.user, "[server]", service.user);
         service.sendMessage(m);
       } catch (InterruptedException | IOException e) {
-        throw new RuntimeException(e);
+//        throw new RuntimeException(e);
       }
     }
   }
